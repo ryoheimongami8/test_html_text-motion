@@ -1,0 +1,1077 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>ビーンズ！ 15秒CM</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=Anton&family=M+PLUS+1p:wght@800;900&display=swap" rel="stylesheet">
+<style>
+  html,body{margin:0;background:#0b0b0b;color:#eee;font-family:system-ui,sans-serif}
+  #wrap{display:flex;flex-direction:column;align-items:center;gap:12px;padding:16px}
+  canvas{width:min(96vw,calc((100vh - 130px)*16/9));aspect-ratio:16/9;background:#000;box-shadow:0 12px 40px #000;display:block}
+  .bar{display:flex;gap:10px;align-items:center;width:min(96vw,calc((100vh - 130px)*16/9))}
+  button{background:#9BE15D;border:0;color:#111;font-weight:800;padding:10px 18px;border-radius:8px;cursor:pointer;font-size:15px}
+  button.rec{background:#FF3B5C;color:#fff}
+  button:disabled{opacity:.4;cursor:default}
+  input[type=range]{flex:1;accent-color:#9BE15D}
+  #tc{font-variant-numeric:tabular-nums;min-width:64px;text-align:right}
+  #msg{font-size:13px;opacity:.85;min-height:18px}
+  button.ghost{background:#333;color:#eee}
+  #editor{width:min(96vw,calc((100vh - 130px)*16/9));max-height:60vh;overflow-y:auto;background:#181818;
+    border:1px solid #333;border-radius:10px;padding:14px 18px;box-sizing:border-box;font-size:13px}
+  #editor.hidden{display:none}
+  #editor h4{margin:14px 0 8px;color:#9BE15D;font-size:13px;border-bottom:1px solid #333;padding-bottom:4px}
+  #editor h4:first-child{margin-top:0}
+  .ed-head{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+  .ed-head strong{flex:1}
+  #saveState{opacity:.7;font-size:12px}
+  .ed-row{display:flex;align-items:center;gap:8px;margin:6px 0;flex-wrap:wrap}
+  .ed-row label{width:120px;flex-shrink:0;opacity:.85}
+  .ed-row input[type=text],.ed-row input[type=number]{flex:1;min-width:120px;background:#0f0f0f;color:#eee;
+    border:1px solid #3a3a3a;border-radius:6px;padding:6px 8px;font-size:13px}
+  .ed-row input[type=color]{width:36px;height:30px;padding:0;border:1px solid #3a3a3a;border-radius:6px;background:none}
+  .ed-row input[type=file]{flex:1;min-width:160px;font-size:12px;color:#aaa}
+  .char-card{border:1px solid #2c2c2c;border-radius:8px;padding:10px;margin-bottom:10px;background:#141414}
+  .char-card .ed-row label{width:60px}
+</style>
+</head>
+<body>
+<div id="wrap">
+  <canvas id="c" width="1920" height="1080"></canvas>
+  <div class="bar">
+    <button id="play">▶ 再生</button>
+    <button id="rec" class="rec">● MP4書き出し</button>
+    <button id="editBtn" class="ghost">✎ 編集</button>
+    <input id="scrub" type="range" min="0" max="15" step="0.0333" value="0">
+    <span id="tc">0.00s</span>
+  </div>
+  <div id="msg"></div>
+
+  <div id="editor" class="hidden">
+    <div class="ed-head">
+      <strong>編集パネル — 変更はすぐプレビューに反映され、自動的に config.json に保存されます</strong>
+      <span id="saveState"></span>
+      <button id="closeEditor" class="ghost">閉じる</button>
+    </div>
+
+    <h4>共通</h4>
+    <div class="ed-row"><label>BPM</label><input id="cfg-bpm" type="number" min="60" max="220" step="1"></div>
+    <div class="ed-row"><label>ロゴ文字</label><input id="cfg-logo" type="text"></div>
+    <div class="ed-row"><label>英語タグ</label><input id="cfg-entag" type="text"></div>
+    <div class="ed-row"><label>キャッチコピー</label><input id="cfg-tagline" type="text"></div>
+    <div class="ed-row"><label>COMING SOON 1</label><input id="cfg-cs1" type="text"></div>
+    <div class="ed-row"><label>COMING SOON 2</label><input id="cfg-cs2" type="text"></div>
+    <div class="ed-row"><label>集合絵(PNG)</label><input id="asset-sheet" type="file" accept="image/png,image/webp"></div>
+    <div class="ed-row"><label>集合動画</label><input id="asset-video" type="file" accept="video/webm,video/mp4"></div>
+
+    <h4>オープニング（3語, シーン1）</h4>
+    <div class="ed-row"><label>1語目</label><input class="cfg-w1" data-i="0" type="text"></div>
+    <div class="ed-row"><label>2語目</label><input class="cfg-w1" data-i="1" type="text"></div>
+    <div class="ed-row"><label>3語目</label><input class="cfg-w1" data-i="2" type="text"></div>
+
+    <h4>キャッチコピー演出（シーン2, 4つのセリフ）</h4>
+    <div id="s2lines"></div>
+
+    <h4>シーン3・4・5のその他テキスト</h4>
+    <div class="ed-row"><label>集合の見出し</label><input id="cfg-s4title" type="text"></div>
+    <div class="ed-row"><label>掛け声1</label><input id="cfg-s5l1" type="text"></div>
+    <div class="ed-row"><label>掛け声2</label><input id="cfg-s5l2" type="text"></div>
+    <div class="ed-row"><label>テープ(上)</label><input id="cfg-tapetop" type="text"></div>
+    <div class="ed-row"><label>テープ(下)</label><input id="cfg-tapebottom" type="text"></div>
+
+    <h4>キャラクター（5人固定）</h4>
+    <div id="charRows"></div>
+  </div>
+</div>
+<video id="vA" muted playsinline preload="auto" style="display:none"></video>
+<video id="vB" muted playsinline preload="auto" style="display:none"></video>
+<script src="https://cdn.jsdelivr.net/npm/mp4-muxer@5.1.3/build/mp4-muxer.min.js"></script>
+<script>
+// ============================================================
+//  ビーンズ！ 15" SPOT  — 1920x1080 / 128BPM / 32 beats = 15.0s
+// ============================================================
+const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+const W = 1920, H = 1080, INK = '#111';
+const vA = document.getElementById('vA'), vB = document.getElementById('vB');
+const msg = document.getElementById('msg'), scrub = document.getElementById('scrub'), tcEl = document.getElementById('tc');
+const imgOk = im => im && im.complete && im.naturalWidth > 0;
+const CB = Date.now(); // cache-bust so a reload after replacing an asset always shows the new file
+const withCB = src => src + (src.includes('?') ? '&' : '?') + 'v=' + CB;
+
+// ============================================================
+//  EDITABLE CONFIG — everything below is loaded from config.json.
+//  DEFAULT_CONFIG is only the fallback used if config.json is missing/broken;
+//  the real values people edit live in config.json (and assets/ for images/video).
+// ============================================================
+const DEFAULT_CONFIG = {
+  bpm: 128, duration: 15,
+  colors: { green: '#8CC63F', lime: '#9BE15D' },
+  assets: { squadVideo: 'assets/goblins_alpha.webm', groupSheet: 'assets/sheet_alpha.png', groupSheetCrop: [0, 380, 3333, 1520] },
+  characters: [
+    { name: 'ハカセ',   en: 'THE BRAIN',   quote: '計算どおり…たぶん。', color: '#FF5A36', image: 'assets/char_1.png' },
+    { name: 'ドッシリ', en: 'THE TANK',    quote: 'はらへった！',       color: '#FFC21A', image: 'assets/char_2.png' },
+    { name: 'ツンツン', en: 'THE COOL',    quote: '別に…やるけど？',     color: '#2E7BFF', image: 'assets/char_3.png' },
+    { name: 'ヒョロリ', en: 'THE WORRIER', quote: 'え、ほんとに行くの？', color: '#8A3FFC', image: 'assets/char_4.png' },
+    { name: 'チビスケ', en: 'THE KID',     quote: 'ぼくもいくー！',     color: '#FF2E88', image: 'assets/char_5.png' },
+  ],
+  text: {
+    scene1Words: ['ちいさな', 'みどりの', '5人組'],
+    scene2Lines: [
+      { text: 'ちっちゃい。', beat: 1, endBeat: 3, color: '#fff',    size: 200 },
+      { text: 'でも、',       beat: 3, endBeat: 4, color: '#fff',    size: 200 },
+      { text: 'やるときゃ',   beat: 4, endBeat: 5, color: '#fff',    size: 210 },
+      { text: 'やる！',       beat: 5, endBeat: 7, color: '#FF2E88', size: 280 },
+    ],
+    tapeTop: 'BEANS!  ★  ビーンズ！  ★  ', tapeBottom: 'ちっちゃいけど、ぜんりょく。  ●  ',
+    scene4Title: '5人そろって——', scene5Line1: 'いくぞ、', scene5Line2: '野郎ども！！',
+    logoText: 'ビーンズ！', englishTag: 'BEANS!', tagline: 'ちっちゃいけど、ぜんりょく。',
+    comingSoonLine1: 'COMING', comingSoonLine2: 'SOON!',
+  },
+};
+function deepMerge(base, patch) {
+  if (Array.isArray(base) || typeof patch !== 'object' || patch === null) return patch === undefined ? base : patch;
+  const out = { ...base };
+  for (const k in patch) out[k] = deepMerge(base[k], patch[k]);
+  return out;
+}
+
+let CONFIG = DEFAULT_CONFIG, BPM, DUR, B, GREEN, LIME, CH = [], LOGO = [], S = {};
+const sheet = new Image();
+const CHARS = [0, 1, 2, 3, 4].map(() => new Image()); // fixed at 5 — the layout (cards, group shot) assumes exactly 5
+
+function applyConfig(cfg) {
+  CONFIG = cfg;
+  BPM = cfg.bpm; DUR = cfg.duration; B = 60 / BPM;
+  GREEN = cfg.colors.green; LIME = cfg.colors.lime;
+  CH = cfg.characters.map(c => ({ n: c.name, en: c.en, q: c.quote, c: c.color }));
+  CHARS.forEach((im, i) => { const src = cfg.characters[i]?.image; if (src) im.src = withCB(src); });
+  sheet.src = withCB(cfg.assets.groupSheet);
+  LOGO = [...cfg.text.logoText];
+  S = { s2: 4 * B, s3: 10 * B, s4: 20 * B, s5: 22 * B, s6: 26 * B };
+  buildConfetti();
+  scrub.max = DUR;
+}
+// ---------- utils ----------
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const seg = (t, a, b) => clamp((t - a) / (b - a));
+const lerp = (a, b, t) => a + (b - a) * t;
+const eOutExpo = t => t >= 1 ? 1 : 1 - Math.pow(2, -10 * t);
+const eInExpo = t => t <= 0 ? 0 : Math.pow(2, 10 * t - 10);
+const eOutBack = (t, s = 1.9) => { const c = s + 1; return 1 + c * Math.pow(t - 1, 3) + s * Math.pow(t - 1, 2); };
+const eInOut = t => t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+const rnd = n => { const x = Math.sin(n * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };
+const F = { jp: '"Dela Gothic One","M PLUS 1p",sans-serif', en: 'Anton,Impact,sans-serif', mp: '"M PLUS 1p",sans-serif' };
+
+function bg(col) { ctx.fillStyle = col; ctx.fillRect(-80, -80, W + 160, H + 160); }
+function rr(x, y, w, h, r) { ctx.beginPath(); ctx.roundRect(x, y, w, h, r); }
+
+function T(s, x, y, size, o = {}) {
+  ctx.save();
+  ctx.font = `${o.w || ''} ${size}px ${o.f || F.jp}`;
+  ctx.textAlign = o.a || 'center'; ctx.textBaseline = 'middle'; ctx.lineJoin = 'round';
+  if (o.sh) {
+    const so = o.so ?? 12;
+    ctx.fillStyle = o.sh; ctx.strokeStyle = o.sh;
+    if (o.lw) { ctx.lineWidth = o.lw; ctx.strokeText(s, x + so, y + so); }
+    ctx.fillText(s, x + so, y + so);
+  }
+  if (o.lw) { ctx.lineWidth = o.lw; ctx.strokeStyle = o.st || INK; ctx.strokeText(s, x, y); }
+  if (o.fill !== null) { ctx.fillStyle = o.fill || '#fff'; ctx.fillText(s, x, y); }
+  ctx.restore();
+}
+
+// kinetic "slam" text with chromatic split
+function slam(s, x, y, size, p, o = {}) {
+  if (p <= 0) return;
+  const e = eOutExpo(clamp(p)), sc = lerp(2.6, 1, e);
+  ctx.save(); ctx.translate(x, y); ctx.rotate(o.r || 0); ctx.scale(sc, sc);
+  ctx.globalAlpha = clamp(p * 5);
+  const off = (1 - e) * 40 + (o.jit || 0);
+  if (off > 0.5) {
+    ctx.globalCompositeOperation = 'lighter';
+    T(s, -off, 0, size, { fill: '#00E5FF', f: o.f, lw: o.lw, st: '#00E5FF' });
+    T(s, off, 0, size, { fill: '#FF2E63', f: o.f, lw: o.lw, st: '#FF2E63' });
+    ctx.globalCompositeOperation = 'source-over';
+  }
+  T(s, 0, 0, size, { fill: o.fill || '#fff', lw: o.lw, st: o.st, f: o.f, sh: o.sh, so: o.so });
+  ctx.restore();
+}
+
+function beanPath() {
+  ctx.beginPath(); ctx.moveTo(-.55, -.05);
+  ctx.bezierCurveTo(-.6, -.5, -.05, -.6, .12, -.36);
+  ctx.bezierCurveTo(.25, -.2, .38, -.48, .56, -.24);
+  ctx.bezierCurveTo(.76, .02, .6, .46, .14, .46);
+  ctx.bezierCurveTo(-.3, .46, -.5, .3, -.55, -.05);
+  ctx.closePath();
+}
+function bean(x, y, s, r, col, ol = true) {
+  ctx.save(); ctx.translate(x, y); ctx.rotate(r); ctx.scale(s, s);
+  beanPath(); ctx.fillStyle = col; ctx.fill();
+  if (ol) { ctx.lineWidth = .05; ctx.strokeStyle = INK; ctx.stroke(); }
+  ctx.beginPath(); ctx.ellipse(-.22, -.2, .12, .055, -.6, 0, Math.PI * 2);
+  ctx.fillStyle = 'rgba(255,255,255,.6)'; ctx.fill();
+  ctx.restore();
+}
+
+function drawVideo(el, x, y, w, h, zoom = 1, ox = 0, oy = 0) {
+  if (el.readyState < 2 || !el.videoWidth) return false;
+  const vw = el.videoWidth, vh = el.videoHeight;
+  const s = Math.max(w / vw, h / vh) * zoom, dw = vw * s, dh = vh * s;
+  ctx.drawImage(el, x + (w - dw) / 2 + ox, y + (h - dh) / 2 + oy, dw, dh);
+  return true;
+}
+function videoFallback(t) {
+  bg('#2f5d1e');
+  for (let i = 0; i < 14; i++) bean(rnd(i) * W, (rnd(i + 3) * H + t * 200) % H, 120, t + i, GREEN);
+}
+
+// trading-card panel; the character's head breaks out over the top edge
+function card(i, cx, cy, h, rot, tint) {
+  const w = h * .78, r = h * .04, pad = h * .04, im = CHARS[i];
+  ctx.save(); ctx.translate(cx, cy); ctx.rotate(rot);
+  ctx.fillStyle = INK; rr(-w / 2 + h * .035, -h / 2 + h * .035, w, h, r); ctx.fill();
+  ctx.fillStyle = '#fff'; rr(-w / 2, -h / 2, w, h, r); ctx.fill();
+  ctx.save(); rr(-w / 2, -h / 2, w, h, r); ctx.clip();
+  if (tint) {
+    const g = ctx.createLinearGradient(0, -h / 2, 0, h / 2);
+    g.addColorStop(0, tint + '10'); g.addColorStop(1, tint + '55');
+    ctx.fillStyle = g; ctx.fillRect(-w / 2, -h / 2, w, h);
+  }
+  ctx.fillStyle = 'rgba(0,0,0,.08)';
+  for (let y = -h / 2, row = 0; y < h / 2; y += 22, row++) for (let x = -w / 2; x < w / 2; x += 22) {
+    const k = clamp(((y + h / 2) / h) * 1.6 - .55);
+    if (k > 0) { ctx.beginPath(); ctx.arc(x + (row % 2 ? 11 : 0), y, k * 9, 0, 6.283); ctx.fill(); }
+  }
+  ctx.restore();
+  ctx.lineWidth = h * .012; ctx.strokeStyle = INK; rr(-w / 2, -h / 2, w, h, r); ctx.stroke();
+  if (imgOk(im)) {
+    const asp = im.naturalWidth / im.naturalHeight;
+    const ch = Math.min(h * 1.12, w * 1.08 / asp), cw = ch * asp;
+    ctx.save();
+    ctx.beginPath(); ctx.rect(-w / 2, -h / 2, w, h - pad * .5); ctx.rect(-w, -h * 2, w * 2, h * 1.5); ctx.clip();
+    ctx.drawImage(im, -cw / 2, h / 2 - pad - ch, cw, ch);
+    ctx.restore();
+  }
+  ctx.restore();
+  return w;
+}
+
+function tape(y, rot, off, bgc, fg, str, size = 60) {
+  ctx.save(); ctx.translate(W / 2, y); ctx.rotate(rot);
+  ctx.fillStyle = bgc; ctx.fillRect(-W, -size * .85, W * 2, size * 1.7);
+  ctx.font = `${size}px ${F.jp}`; ctx.fillStyle = fg; ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
+  const tw = ctx.measureText(str).width;
+  for (let x = -W * 1.1 + (((off % tw) + tw) % tw) - tw; x < W * 1.1; x += tw) ctx.fillText(str, x, 4);
+  ctx.restore();
+}
+
+function halftone(col, alpha, fn, sp = 36) {
+  ctx.save(); ctx.fillStyle = col; ctx.globalAlpha = alpha;
+  for (let y = 0, row = 0; y < H + sp; y += sp, row++) for (let x = 0; x < W + sp; x += sp) {
+    const px = x + (row % 2 ? sp / 2 : 0), r = fn(px, y) * sp * .5;
+    if (r > .6) { ctx.beginPath(); ctx.arc(px, y, r, 0, 6.283); ctx.fill(); }
+  }
+  ctx.restore();
+}
+
+function speedLines(seed, amt, col) {
+  if (amt <= 0) return;
+  ctx.save(); ctx.strokeStyle = col; ctx.lineCap = 'round';
+  for (let i = 0; i < 16; i++) {
+    const y = rnd(seed + i) * H, len = 300 + rnd(seed + i + 50) * 900, x = W - (rnd(seed + i + 9) * W * 1.4) * (1 - amt * .3);
+    ctx.globalAlpha = amt * .7; ctx.lineWidth = 3 + rnd(i + seed) * 10;
+    ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + len * amt, y); ctx.stroke();
+  }
+  ctx.restore();
+}
+
+// grain texture (generated, so canvas stays origin-clean)
+const grain = document.createElement('canvas'); grain.width = grain.height = 512;
+{
+  const g = grain.getContext('2d'), id = g.createImageData(512, 512);
+  for (let i = 0; i < id.data.length; i += 4) { const v = Math.random() * 255; id.data[i] = id.data[i + 1] = id.data[i + 2] = v; id.data[i + 3] = 255; }
+  g.putImageData(id, 0, 0);
+}
+const grainPat = ctx.createPattern(grain, 'repeat');
+
+// ============================================================
+//  SCENES   (beat = B = 60/BPM; S.* boundaries are (re)computed in applyConfig())
+//  S1 0-4b  intro slams     S2 4-10b  video + tapes
+//  S3 10-20b 5 char cards   S4 20-22b group
+//  S5 22-26b video strips   S6 26-32b logo finale
+// ============================================================
+
+function s1(t, k) {
+  bg('#0c0c0c');
+  ctx.save(); ctx.translate(W / 2, H / 2); ctx.rotate(t * .5);
+  for (let i = 0; i < 24; i++) {
+    ctx.rotate(Math.PI * 2 / 24);
+    ctx.fillStyle = i % 2 ? `rgba(155,225,93,${.05 + k * .05})` : 'rgba(255,255,255,.025)';
+    ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(1500, -130); ctx.lineTo(1500, 130); ctx.fill();
+  }
+  ctx.restore();
+  // orbiting mini beans
+  for (let i = 0; i < 10; i++) {
+    const a = i / 10 * Math.PI * 2 + t * 1.3, rad = 520 + Math.sin(t * 3 + i) * 40;
+    ctx.globalAlpha = seg(t, 0, .4) * .9;
+    bean(W / 2 + Math.cos(a) * rad * 1.5, H / 2 + Math.sin(a) * rad * .7, 50 + k * 10, a * 2, i % 3 ? GREEN : LIME);
+    ctx.globalAlpha = 1;
+  }
+  const words = CONFIG.text.scene1Words;
+  for (let i = 0; i < 3; i++) {
+    const st = i * B;
+    if (t >= st && t < st + B) slam(words[i], W / 2, H / 2, 250, seg(t, st, st + .18), { r: (i - 1) * .06, jit: k * 6, fill: i === 2 ? LIME : '#fff' });
+  }
+  if (t >= 3 * B) {
+    const p = seg(t, 3 * B, 4 * B);
+    bean(W / 2, H / 2, lerp(60, 5600, Math.pow(p, 2.6)), p * 2.2, GREEN, true);
+    if (p < .45) slam('！', W / 2, H / 2, 300, seg(p, 0, .3), { fill: INK });
+  }
+}
+
+function stripes(col, alpha, speed, t, sp = 170, wdt = 64) {
+  ctx.save(); ctx.globalAlpha = alpha; ctx.fillStyle = col;
+  const so = (t * speed) % sp;
+  for (let x = -H; x < W + 200; x += sp) {
+    ctx.beginPath(); ctx.moveTo(x + so, 0); ctx.lineTo(x + so + wdt, 0); ctx.lineTo(x + so + wdt - H * .6, H); ctx.lineTo(x + so - H * .6, H); ctx.fill();
+  }
+  ctx.restore();
+}
+
+function s2(lt, t, k) {
+  bg('#FFD23F');
+  stripes('#fff', .22, 260, t);
+  halftone('#FF9F1C', .45, (x, y) => clamp((y / H) * 1.3 - .35), 34);
+  // giant scrolling outline word behind the squad
+  ctx.save(); ctx.font = `520px ${F.en}`; ctx.textBaseline = 'middle'; ctx.lineWidth = 8; ctx.strokeStyle = 'rgba(17,17,17,.18)';
+  const word = `${CONFIG.text.englishTag} ${CONFIG.text.englishTag} `, ww = ctx.measureText(word).width;
+  for (let x = -((lt * 500) % ww); x < W; x += ww) ctx.strokeText(word, x, 620);
+  ctx.restore();
+
+  // keyed squad footage
+  if (!drawVideo(vA, 0, 90, W, H, 1.0 + lt * .04 + k * .02)) { /* not ready yet */ }
+
+  const lb = lt / B, jit = k * 4, lines = CONFIG.text.scene2Lines;
+  lines.forEach((ln, idx) => {
+    if (lb >= ln.beat && lb < ln.endBeat) {
+      const isPunch = idx === lines.length - 1;
+      const sh = isPunch ? (rnd(Math.floor(t * 30)) - .5) * 16 : 0;
+      slam(ln.text, W / 2 + sh, 250, ln.size, seg(lt, ln.beat * B, ln.beat * B + .18), { fill: ln.color, lw: 20, sh: INK, so: 12, jit, r: (ln.beat % 2 ? -.03 : .03) });
+    }
+  });
+
+  tape(H - 150, -3 * Math.PI / 180, lt * 700, INK, '#FFD23F', CONFIG.text.tapeTop, 54);
+  tape(H - 60, 2.5 * Math.PI / 180, -lt * 700, '#FF2E88', '#fff', CONFIG.text.tapeBottom, 50);
+
+  // circle reveal out of the giant bean
+  if (lt < .32) {
+    const p = eOutExpo(seg(lt, 0, .32));
+    ctx.save(); ctx.beginPath(); ctx.rect(-100, -100, W + 200, H + 200);
+    ctx.arc(W / 2, H / 2, p * 1300, 0, Math.PI * 2, true);
+    ctx.fillStyle = GREEN; ctx.fill('evenodd');
+    ctx.lineWidth = 24; ctx.strokeStyle = INK; ctx.beginPath(); ctx.arc(W / 2, H / 2, p * 1300, 0, Math.PI * 2); ctx.stroke();
+    ctx.restore();
+  }
+  // shutter into scene 3
+  const d = S.s3 - S.s2;
+  if (lt > d - .3) {
+    const p = seg(lt, d - .3, d);
+    for (let i = 0; i < 8; i++) {
+      const pp = eOutExpo(clamp(p * 1.7 - i * .08));
+      ctx.fillStyle = i % 2 ? CH[0].c : INK;
+      if (i % 2) ctx.fillRect(0, i * H / 8 - 2, W * pp, H / 8 + 4);
+      else ctx.fillRect(W * (1 - pp), i * H / 8 - 2, W * pp, H / 8 + 4);
+    }
+    ctx.fillStyle = CH[0].c; ctx.globalAlpha = seg(p, .75, 1); ctx.fillRect(0, 0, W, H); ctx.globalAlpha = 1;
+  }
+}
+
+function s3(lt, t, k) {
+  const D = 2 * B, i = Math.min(4, Math.floor(lt / D)), L = lt - i * D, c = CH[i];
+  bg(c.c);
+  // moving diagonal stripes
+  ctx.save(); ctx.globalAlpha = .13; ctx.fillStyle = '#fff';
+  const so = (t * 320) % 170;
+  for (let x = -H; x < W + 200; x += 170) {
+    ctx.beginPath(); ctx.moveTo(x + so, 0); ctx.lineTo(x + so + 64, 0); ctx.lineTo(x + so + 64 - H * .6, H); ctx.lineTo(x + so - H * .6, H); ctx.fill();
+  }
+  ctx.restore();
+  halftone('#000', .16, (x, y) => clamp((y / H) * (1 - x / W) * 2 - .25));
+
+  // giant outlined number
+  T('0' + (i + 1), lerp(1560, 1360, L / D), 560, 860, { f: F.en, fill: null, lw: 7, st: 'rgba(255,255,255,.6)' });
+
+  // band + texts
+  const pb = eOutExpo(seg(L, .04, .3)), bo = eInExpo(seg(L, D - .13, D)), bw = lerp(0, 1060, pb);
+  ctx.save(); ctx.translate(-bo * 1600, 0);
+  ctx.fillStyle = INK; ctx.beginPath(); ctx.moveTo(-60, 585); ctx.lineTo(bw, 585); ctx.lineTo(bw - 80, 805); ctx.lineTo(-60, 805); ctx.fill();
+  ctx.save(); ctx.beginPath(); ctx.rect(-60, 150, bw + 60, 700); ctx.clip();
+  T('BEAN  0' + (i + 1) + '  /  05', 116, 270, 46, { f: F.en, a: 'left', fill: '#fff', lw: 8 });
+  T(c.en, 110, 470 + (1 - pb) * 60, 128, { f: F.en, a: 'left', fill: '#fff', lw: 14, sh: INK, so: 8 });
+  T(c.n, 110, 700, 180, { a: 'left', fill: '#fff', sh: c.c, so: 9 });
+  ctx.restore();
+  // quote bubble
+  const pq = eOutBack(seg(L, .28, .5), 2.2);
+  if (pq > 0) {
+    ctx.save(); ctx.translate(130, 895); ctx.scale(pq, pq); ctx.rotate(-.03);
+    ctx.font = `54px ${F.jp}`; const qw = ctx.measureText(c.q).width + 80;
+    ctx.fillStyle = INK; rr(10, -44, qw, 100, 50); ctx.fill();
+    ctx.fillStyle = '#fff'; rr(0, -54, qw, 100, 50); ctx.fill();
+    ctx.lineWidth = 6; ctx.strokeStyle = INK; ctx.stroke();
+    T(c.q, 40, -2, 54, { a: 'left', fill: INK });
+    ctx.restore();
+  }
+  ctx.restore();
+
+  // card
+  const pin = eOutBack(seg(L, .02, .32), 1.6), pout = eInExpo(seg(L, D - .15, D));
+  speedLines(i * 31, 1 - seg(L, .05, .35), 'rgba(255,255,255,.9)');
+  card(i, lerp(W + 700, 1370, pin) - pout * 2300, 560 + Math.sin(L * 7) * 6 - k * 8, 830 * (1 + k * .015), lerp(.4, -.05, pin) - pout * .35, c.c);
+
+  // punch flash
+  if (L < .09) { ctx.fillStyle = `rgba(255,255,255,${(1 - L / .09) * .75})`; ctx.fillRect(-80, -80, W + 160, H + 160); }
+}
+
+function s4(lt, t, k) {
+  bg(INK);
+  halftone(GREEN, .35, (x, y) => clamp(1 - Math.hypot(x - W / 2, y - H / 2) / 1100 + k * .15), 40);
+  const rots = [-.08, .05, -.04, .07, -.06], xs = [255, 610, 960, 1305, 1665];
+  for (let i = 0; i < 5; i++) {
+    const d = .05 + i * B / 4, p = eOutBack(seg(lt, d, d + .28), 1.8);
+    if (p <= 0) continue;
+    card(i, xs[i], 650 + (1 - p) * 800 - (i % 2 ? k * 10 : 0), 480, rots[i] * p, CH[i].c);
+  }
+  slam(CONFIG.text.scene4Title, W / 2, 180, 150, seg(lt, 0, .16), { fill: LIME, lw: 14, sh: '#000', so: 10 });
+  if (lt < .08) { ctx.fillStyle = `rgba(255,255,255,${(1 - lt / .08) * .8})`; ctx.fillRect(-80, -80, W + 160, H + 160); }
+}
+
+function s5(lt, t, k) {
+  bg(INK);
+  const lb = lt / B, end = seg(lt, 3.3 * B, 4 * B);
+  ctx.save(); ctx.translate(W / 2, H / 2); ctx.scale(1 + end * .35, 1 + end * .35); ctx.translate(-W / 2, -H / 2);
+  const cols = ['#FF5A36', '#2E7BFF', '#FF2E88'];
+  // per strip: [zoom, focus x, focus y] on the posed squad (video space, 1920x1080)
+  const cams = [[1.35, 760, 560], [.9, 980, 600], [1.35, 1260, 560]];
+  for (let s = 0; s < 3; s++) {
+    const d = s * B / 2, p = eOutExpo(seg(lt, d, d + .3)), dir = s % 2 ? -1 : 1;
+    if (p <= 0) continue;
+    const x0 = s * W / 3 - 110, x1 = (s + 1) * W / 3 + 110, sl = 220;
+    ctx.save(); ctx.translate(0, (1 - p) * H * dir);
+    ctx.beginPath(); ctx.moveTo(x0 + sl, 0); ctx.lineTo(x1 + sl, 0); ctx.lineTo(x1 - sl, H); ctx.lineTo(x0 - sl, H); ctx.closePath();
+    ctx.save(); ctx.clip();
+    ctx.fillStyle = cols[s]; ctx.fillRect(x0 - sl, 0, x1 - x0 + sl * 2, H);
+    stripes('#fff', .15, s % 2 ? -300 : 300, t, 120, 40);
+    halftone(INK, .18, (x, y) => clamp(Math.abs(x - (x0 + x1) / 2) / 500 - .1), 30);
+    const [z, fx, fy] = cams[s], zz = z * (1 + lt * .05 + k * .03);
+    const cx = (x0 + x1) / 2;
+    const drift = (s - 1) * lt * 30;
+    if (vB.readyState >= 2) ctx.drawImage(vB, cx - fx * zz + drift, H / 2 + 40 - fy * zz, W * zz, H * zz);
+    ctx.restore();
+    ctx.lineWidth = 16; ctx.strokeStyle = INK; ctx.stroke();
+    ctx.lineWidth = 5; ctx.strokeStyle = LIME; ctx.stroke();
+    ctx.restore();
+  }
+  const sh = (rnd(Math.floor(t * 30)) - .5) * 18 * seg(lb, 2, 4);
+  if (lb >= .5) slam(CONFIG.text.scene5Line1, W / 2 + sh, 380, 210, seg(lt, .5 * B, .5 * B + .18), { lw: 18, jit: k * 5 });
+  if (lb >= 2) slam(CONFIG.text.scene5Line2, W / 2 - sh, 660, 250, seg(lt, 2 * B, 2 * B + .18), { fill: '#FFE14D', lw: 20, sh: INK, so: 14, r: -.03, jit: k * 8 });
+  ctx.restore();
+  if (end > 0) { ctx.fillStyle = `rgba(255,255,255,${eInExpo(end)})`; ctx.fillRect(-80, -80, W + 160, H + 160); }
+}
+
+let CONF = [];
+function buildConfetti() {
+  CONF = Array.from({ length: 56 }, (_, i) => ({
+    a: -Math.PI / 2 + (rnd(i) - .5) * Math.PI * 1.5, v: 900 + rnd(i + 20) * 1500,
+    s: 26 + rnd(i + 40) * 40, r: rnd(i + 60) * 6, vr: (rnd(i + 80) - .5) * 14,
+    c: [GREEN, LIME, '#FFC21A', '#FF5A36', '#2E7BFF', '#FF2E88'][i % 6], front: i % 2,
+  }));
+}
+
+// now that rnd()/buildConfetti() etc. are all defined, it's safe to actually apply config:
+applyConfig(DEFAULT_CONFIG); // sane immediate default; overwritten once config.json is fetched
+
+const configReady = fetch(withCB('config.json')).then(r => r.json()).then(j => applyConfig(deepMerge(DEFAULT_CONFIG, j)))
+  .catch(e => console.warn('config.json 読込失敗、既定値を使用します', e));
+
+// keyed (alpha) squad footage. Loaded as a blob so it can seek on any static server (Range 非対応でも可).
+let vdur = 5;
+const videoReady = configReady.then(() => fetch(withCB(CONFIG.assets.squadVideo))).then(r => r.blob()).then(b => {
+  const u = URL.createObjectURL(b);
+  return Promise.all([vA, vB].map(v => new Promise(res => { v.addEventListener('loadeddata', res, { once: true }); v.src = u; v.load(); })));
+}).then(() => { vdur = vA.duration || 5; }).catch(e => { msg.textContent = '動画の読み込みに失敗: ' + e; });
+[vA, vB].forEach(v => v.addEventListener('seeked', () => { if (!playing) render(+scrub.value); }));
+
+function confetti(lt, front) {
+  const t0 = .55, tt = lt - t0;
+  if (tt <= 0) return;
+  for (const p of CONF) {
+    if (p.front !== front) continue;
+    const x = W / 2 + Math.cos(p.a) * p.v * tt, y = 200 + Math.sin(p.a) * p.v * tt + 1700 * tt * tt;
+    if (y > H + 100) continue;
+    bean(x, y, p.s, p.r + p.vr * tt, p.c);
+  }
+}
+
+function s6(lt, t, k) {
+  bg('#FFF4D6');
+  ctx.save(); ctx.translate(W / 2, 600); ctx.rotate(lt * .25);
+  for (let i = 0; i < 28; i++) {
+    ctx.rotate(Math.PI * 2 / 28);
+    if (i % 2) { ctx.fillStyle = '#FFE39A'; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(1600, -180); ctx.lineTo(1600, 180); ctx.fill(); }
+  }
+  ctx.restore();
+  const rg = ctx.createRadialGradient(W / 2, 720, 100, W / 2, 720, 900);
+  rg.addColorStop(0, 'rgba(255,255,255,.95)'); rg.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = rg; ctx.fillRect(0, 0, W, H);
+
+  confetti(lt, 0);
+
+  // the squad
+  const ps = eOutBack(seg(lt, .05, .6), 1.4);
+  const [sx, sy, sw, sh] = CONFIG.assets.groupSheetCrop, dw = 1760, dh = dw * sh / sw;
+  const dx = (W - dw) / 2, dy = H - dh + 40 + (1 - ps) * 950;
+  ctx.fillStyle = 'rgba(0,0,0,.12)'; ctx.beginPath(); ctx.ellipse(W / 2, H - 45, 820 * ps, 40, 0, 0, 6.283); ctx.fill();
+  if (imgOk(sheet)) {
+    ctx.save(); ctx.translate(W / 2, H); ctx.scale(1 + k * .012, 1 - k * .012); ctx.translate(-W / 2, -H);
+    ctx.drawImage(sheet, sx, sy, sw, sh, dx, dy, dw, dh);
+    ctx.restore();
+  }
+
+  // logo
+  const size = 270, gap = -8, logoY = 190;
+  ctx.font = `${size}px ${F.jp}`;
+  const ws = LOGO.map(ch => ctx.measureText(ch).width);
+  let x = (W - (ws.reduce((a, b) => a + b, 0) + gap * (LOGO.length - 1))) / 2;
+  const grad = ctx.createLinearGradient(0, logoY - size / 2, 0, logoY + size / 2);
+  grad.addColorStop(0, '#C9F77E'); grad.addColorStop(.55, '#7CC23B'); grad.addColorStop(1, '#3E8E2E');
+  LOGO.forEach((ch, j) => {
+    const d = .22 + j * .075, p = seg(lt, d, d + .42);
+    const cx = x + ws[j] / 2; x += ws[j] + gap;
+    if (p <= 0) return;
+    const e = eOutBack(p, 2.4), landed = lt > d + .42;
+    const bob = landed ? -Math.max(0, Math.sin((t / B) * Math.PI * 2 + j * .7)) * 12 : 0;
+    ctx.save(); ctx.translate(cx, lerp(-320, logoY, e) + bob); ctx.rotate(lerp((rnd(j) - .5) * 1.4, (j % 2 ? .04 : -.04), e));
+    const sq = landed ? 1 : 1 + (1 - p) * .2;
+    ctx.scale(1 / sq, sq);
+    ctx.font = `${size}px ${F.jp}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.lineJoin = 'round';
+    ctx.fillStyle = INK; ctx.strokeStyle = INK; ctx.lineWidth = 34;
+    ctx.strokeText(ch, 14, 16); ctx.fillText(ch, 14, 16);
+    ctx.strokeText(ch, 0, 0);
+    ctx.fillStyle = grad; ctx.fillText(ch, 0, 0);
+    ctx.lineWidth = 5; ctx.strokeStyle = 'rgba(255,255,255,.55)'; ctx.strokeText(ch, -3, -4);
+    ctx.fillStyle = grad; ctx.fillText(ch, 0, 0);
+    ctx.restore();
+  });
+
+  confetti(lt, 1);
+
+  // english tag
+  const pe = eOutBack(seg(lt, .75, 1.0), 2);
+  if (pe > 0) {
+    ctx.save(); ctx.translate(1560, 330); ctx.rotate(-.08); ctx.scale(pe, pe);
+    ctx.fillStyle = INK; rr(-150 + 8, -44 + 8, 300, 88, 12); ctx.fill();
+    ctx.fillStyle = '#FFE14D'; rr(-150, -44, 300, 88, 12); ctx.fill(); ctx.lineWidth = 6; ctx.strokeStyle = INK; ctx.stroke();
+    T(CONFIG.text.englishTag, 0, 2, 64, { f: F.en, fill: INK });
+    ctx.restore();
+  }
+  // tagline
+  const pt = eOutExpo(seg(lt, 1.0, 1.35));
+  if (pt > 0) {
+    ctx.save(); ctx.translate(W / 2, 1000 + (1 - pt) * 200);
+    ctx.font = `58px ${F.jp}`; const tw = ctx.measureText(CONFIG.text.tagline).width + 120;
+    ctx.fillStyle = INK; rr(-tw / 2, -54, tw, 108, 54); ctx.fill();
+    T(CONFIG.text.tagline, 0, 2, 58, { fill: '#fff' });
+    ctx.restore();
+  }
+  // coming soon badge
+  const pc = eOutBack(seg(lt, 1.3, 1.6), 2.2);
+  if (pc > 0) {
+    ctx.save(); ctx.translate(210, 520); ctx.scale(pc, pc); ctx.rotate(-.2 + lt * .15);
+    ctx.fillStyle = INK; ctx.beginPath(); ctx.arc(8, 8, 130, 0, 6.283); ctx.fill();
+    ctx.fillStyle = '#FF2E88'; ctx.beginPath();
+    for (let a = 0; a < 24; a++) { const r = a % 2 ? 118 : 132, an = a / 24 * Math.PI * 2; ctx.lineTo(Math.cos(an) * r, Math.sin(an) * r); }
+    ctx.closePath(); ctx.fill(); ctx.lineWidth = 6; ctx.strokeStyle = INK; ctx.stroke();
+    T(CONFIG.text.comingSoonLine1, 0, -24, 50, { f: F.en, fill: '#fff' });
+    T(CONFIG.text.comingSoonLine2, 0, 32, 58, { f: F.en, fill: '#FFE14D' });
+    ctx.restore();
+  }
+  // white flash from the cut
+  const fl = 1 - seg(lt, 0, .4);
+  if (fl > 0) { ctx.fillStyle = `rgba(255,255,255,${fl})`; ctx.fillRect(-80, -80, W + 160, H + 160); }
+}
+
+function overlay(t) {
+  const fin = t >= S.s6;
+  const g = ctx.createRadialGradient(W / 2, H / 2, H * .35, W / 2, H / 2, H * .95);
+  g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, `rgba(0,0,0,${fin ? .16 : .38})`);
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  const f = Math.floor(t * 30);
+  ctx.save(); ctx.globalAlpha = .09; ctx.globalCompositeOperation = 'overlay';
+  ctx.translate(-rnd(f) * 512, -rnd(f + 7) * 512); ctx.fillStyle = grainPat; ctx.fillRect(0, 0, W + 512, H + 512);
+  ctx.restore();
+  // HUD
+  ctx.save(); ctx.globalCompositeOperation = 'difference'; ctx.fillStyle = '#fff'; ctx.strokeStyle = '#fff';
+  ctx.globalAlpha = fin ? .5 : .8;
+  ctx.font = `30px ${F.en}`; ctx.textBaseline = 'top';
+  ctx.textAlign = 'left'; ctx.fillText('BEANS!   —   15" SPOT', 48, 40);
+  const ss = Math.floor(t), ff = Math.floor((t - ss) * 30);
+  ctx.textAlign = 'right'; ctx.fillText(`00:00:${String(ss).padStart(2, '0')}:${String(ff).padStart(2, '0')}`, W - 48, 40);
+  const sc = [S.s2, S.s3, S.s4, S.s5, S.s6].filter(x => t >= x).length + 1;
+  ctx.textAlign = 'left'; ctx.textBaseline = 'bottom'; ctx.fillText(`SCENE 0${sc}`, 48, H - 36);
+  const bi = Math.floor(t / B) % 4; ctx.lineWidth = 3;
+  for (let q = 0; q < 4; q++) {
+    const x = W - 48 - (4 - q) * 30 + 6;
+    if (q === bi) ctx.fillRect(x, H - 58, 18, 18); else ctx.strokeRect(x + 1.5, H - 56.5, 15, 15);
+  }
+  ctx.restore();
+}
+
+function render(t) {
+  const b = t / B, bp = b - Math.floor(b), k = Math.exp(-bp * 7);
+  ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over'; ctx.filter = 'none';
+  ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
+  let shk = t < S.s2 ? k * 12 : t < S.s6 ? k * 7 : k * 4 * (1 - seg(t, 14, 15));
+  if (t >= S.s6 && t < S.s6 + .35) shk += 34 * (1 - seg(t, S.s6, S.s6 + .35));
+  const f = Math.floor(t * 30);
+  ctx.save(); ctx.translate((rnd(f) - .5) * shk, (rnd(f + 99) - .5) * shk);
+  if (t < S.s2) s1(t, k);
+  else if (t < S.s3) s2(t - S.s2, t, k);
+  else if (t < S.s4) s3(t - S.s3, t, k);
+  else if (t < S.s5) s4(t - S.s4, t, k);
+  else if (t < S.s6) s5(t - S.s5, t, k);
+  else s6(t - S.s6, t, k);
+  ctx.restore();
+  ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over'; ctx.filter = 'none';
+  overlay(t);
+}
+window.renderAt = render; // for frame-by-frame capture tools
+
+// ============================================================
+//  AUDIO — synthesized 128BPM track, locked to the same grid
+// ============================================================
+function scheduleAudio(ac, out, T0) {
+  const len = ac.sampleRate * 2, nb = ac.createBuffer(1, len, ac.sampleRate), nd = nb.getChannelData(0);
+  for (let i = 0; i < len; i++) nd[i] = Math.random() * 2 - 1;
+  const master = ac.createGain(); master.gain.value = .75;
+  const comp = ac.createDynamicsCompressor();
+  comp.threshold.value = -14; comp.ratio.value = 4; comp.attack.value = .003; comp.release.value = .15;
+  const lim = ac.createDynamicsCompressor();
+  lim.threshold.value = -3; lim.knee.value = 0; lim.ratio.value = 20; lim.attack.value = .001; lim.release.value = .08;
+  const trim = ac.createGain(); trim.gain.value = .85;
+  master.connect(comp); comp.connect(lim); lim.connect(trim); trim.connect(out);
+  const n2f = m => 440 * Math.pow(2, (m - 69) / 12);
+  const env = (g, t, a, peak, d) => { g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(peak, t + a); g.gain.exponentialRampToValueAtTime(.0001, t + a + d); };
+  const noise = (t, d, ftype, fr, q = 1) => {
+    const n = ac.createBufferSource(); n.buffer = nb; n.loop = true;
+    const f = ac.createBiquadFilter(); f.type = ftype; f.frequency.setValueAtTime(fr, t); f.Q.value = q;
+    const g = ac.createGain(); n.connect(f).connect(g).connect(master); n.start(t, Math.random()); n.stop(t + d + .1);
+    return { f, g };
+  };
+  function kick(t, v = 1) {
+    const o = ac.createOscillator(), g = ac.createGain(); o.type = 'sine';
+    o.frequency.setValueAtTime(165, t); o.frequency.exponentialRampToValueAtTime(42, t + .13);
+    env(g, t, .002, v, .38); o.connect(g).connect(master); o.start(t); o.stop(t + .45);
+    const c = noise(t, .04, 'highpass', 3000); env(c.g, t, .001, .22 * v, .02);
+  }
+  function snare(t, v = 1) {
+    const n = noise(t, .25, 'bandpass', 2200, .7); env(n.g, t, .002, .5 * v, .18);
+    const o = ac.createOscillator(), g = ac.createGain(); o.type = 'triangle';
+    o.frequency.setValueAtTime(240, t); o.frequency.exponentialRampToValueAtTime(160, t + .08);
+    env(g, t, .001, .32 * v, .09); o.connect(g).connect(master); o.start(t); o.stop(t + .15);
+  }
+  function hat(t, v = 1, open = false) { const n = noise(t, .3, 'highpass', 7500); env(n.g, t, .001, .11 * v, open ? .2 : .035); }
+  function bass(t, fr, d, v = 1) {
+    const o = ac.createOscillator(), o2 = ac.createOscillator(), f = ac.createBiquadFilter(), g = ac.createGain();
+    o.type = 'sawtooth'; o2.type = 'square'; o.frequency.value = fr; o2.frequency.value = fr / 2;
+    f.type = 'lowpass'; f.Q.value = 6; f.frequency.setValueAtTime(1500, t); f.frequency.exponentialRampToValueAtTime(170, t + d);
+    env(g, t, .004, .26 * v, d); o.connect(f); o2.connect(f); f.connect(g).connect(master);
+    o.start(t); o2.start(t); o.stop(t + d + .05); o2.stop(t + d + .05);
+  }
+  function stab(t, notes, d = .3, v = 1) {
+    notes.forEach(m => [-9, 9].forEach(det => {
+      const o = ac.createOscillator(), f = ac.createBiquadFilter(), g = ac.createGain();
+      o.type = 'sawtooth'; o.frequency.value = n2f(m); o.detune.value = det;
+      f.type = 'lowpass'; f.frequency.setValueAtTime(5200, t); f.frequency.exponentialRampToValueAtTime(380, t + d);
+      env(g, t, .003, .045 * v, d); o.connect(f).connect(g).connect(master); o.start(t); o.stop(t + d + .05);
+    }));
+  }
+  function lead(t, m, d = .18, v = 1) {
+    const o = ac.createOscillator(), f = ac.createBiquadFilter(), g = ac.createGain();
+    o.type = 'square'; o.frequency.setValueAtTime(n2f(m) * 1.03, t); o.frequency.exponentialRampToValueAtTime(n2f(m), t + .03);
+    f.type = 'lowpass'; f.frequency.value = 3500; env(g, t, .003, .08 * v, d);
+    o.connect(f).connect(g).connect(master); o.start(t); o.stop(t + d + .05);
+  }
+  function riser(t0, t1, v = .35) {
+    const n = noise(t0, t1 - t0, 'bandpass', 300, 4);
+    n.f.frequency.exponentialRampToValueAtTime(9000, t1);
+    n.g.gain.setValueAtTime(.0001, t0); n.g.gain.exponentialRampToValueAtTime(v, t1 - .01); n.g.gain.linearRampToValueAtTime(0, t1 + .03);
+  }
+  function whoosh(t, d = .3) {
+    const n = noise(t, d, 'bandpass', 6000, 2); n.f.frequency.exponentialRampToValueAtTime(250, t + d);
+    n.g.gain.setValueAtTime(.0001, t); n.g.gain.exponentialRampToValueAtTime(.3, t + d * .4); n.g.gain.exponentialRampToValueAtTime(.0001, t + d);
+  }
+  function impact(t) {
+    kick(t, 1.4);
+    const n = noise(t, 1.8, 'lowpass', 3500); n.f.frequency.exponentialRampToValueAtTime(150, t + 1.4); env(n.g, t, .002, .55, 1.6);
+    const c = noise(t, 2, 'highpass', 5000); env(c.g, t, .002, .22, 1.8);
+    const o = ac.createOscillator(), g = ac.createGain(); o.type = 'sine'; o.frequency.setValueAtTime(70, t); o.frequency.exponentialRampToValueAtTime(40, t + 1);
+    env(g, t, .003, .7, 1.2); o.connect(g).connect(master); o.start(t); o.stop(t + 1.3);
+  }
+
+  const Am = [57, 60, 64], Fm = [57, 60, 65], Cm = [55, 60, 64], Gm = [55, 59, 62];
+  const prog = [[33, Am], [29, Fm], [36, Cm], [31, Gm]];
+  for (let b = 0; b < 32; b++) {
+    const t = T0 + b * B;
+    if (b < 4) {
+      kick(t, 1.1); stab(t, [57, 60, 64, 69], .4, 1.3); hat(t + B / 2, .8);
+      if (b === 3) { riser(t, t + B, .3); snare(t + B / 2, .6); snare(t + 3 * B / 4, .8); }
+    } else if (b < 22) {
+      const [r, ch] = prog[Math.floor((b - 4) / 4) % 4];
+      kick(t); if (b % 2 === 1) snare(t);
+      hat(t + B / 4, .5); hat(t + B / 2, 1, b % 4 === 3); hat(t + 3 * B / 4, .5);
+      bass(t, n2f(r), B * .45); bass(t + B / 2, n2f(r + 12), B * .4, .8);
+      if (b === 4) whoosh(t - .05, .35);
+      if (b >= 10 && b < 20 && b % 2 === 0) { stab(t, ch.map(m => m + 12), .28, 1.1); whoosh(t - .12, .25); lead(t + B, [76, 79, 81, 84, 88][(b - 10) / 2], .2, .8); }
+      if (b >= 20) { for (let s = 0; s < 4; s++) stab(t + s * B / 4, ch.map(m => m + 12), .12, .9); lead(t + B / 2, 81 + (b - 20) * 3, .15); }
+    } else if (b < 26) {
+      if (b < 25) { kick(t); if (b % 2 === 1) snare(t); }
+      for (let s = 0; s < 4; s++) hat(t + s * B / 4, s % 2 ? .6 : 1);
+      bass(t, n2f(31), B * .45); bass(t + B / 2, n2f(43), B * .4, .8);
+      if (b === 22 || b === 24) stab(t, [55, 59, 62, 67], .35, 1.2);
+      if (b === 25) for (let s = 0; s < 8; s++) snare(t + s * B / 8, .3 + s * .1);
+    } else {
+      if (b === 26) { impact(t); stab(t, [48, 60, 64, 67, 72], 1.3, 1.5); }
+      else if (b < 30) {
+        kick(t, .9); if (b % 2 === 1) snare(t, .8); hat(t + B / 2, .8);
+        bass(t, n2f(36), B * .45); bass(t + B / 2, n2f(48), B * .4, .7);
+      }
+      if (b === 30) { kick(t, 1.2); stab(t, [48, 60, 64, 67, 72, 76], 1.6, 1.4); hat(t, 1, true); }
+    }
+  }
+  riser(T0 + 22 * B, T0 + 26 * B, .42);
+  [72, 74, 76, 79, 84].forEach((m, j) => lead(T0 + S.s6 + .22 + j * .075 + .3, m, .16, .9));
+}
+
+// ============================================================
+//  playback / sync / export
+// ============================================================
+let AC = null, T0 = 0, playing = false, outNode = null, rec = null, recStarted = false, chunks = [], recMime = '';
+const vStartB = () => Math.max(0, vdur - (S.s6 - S.s5) - .02); // end of clip = squad pose
+const VSEG = [
+  { a: S.s2, b: S.s3, el: vA, off: () => 0 },
+  { a: S.s5, b: S.s6, el: vB, off: vStartB },
+];
+function syncVideo(t) {
+  for (const s of VSEG) {
+    const el = s.el;
+    if (t >= s.a - .5 && t < s.b) {
+      const want = t < s.a ? s.off() : ((t - s.a) + s.off()) % vdur;
+      if (playing && t >= s.a) {
+        if (el.paused) el.play().catch(() => {});
+        if (Math.abs(el.currentTime - want) > .25) el.currentTime = want;
+      } else {
+        if (!el.paused) el.pause();
+        if (Math.abs(el.currentTime - want) > .02) el.currentTime = want;
+      }
+    } else if (!el.paused) el.pause();
+  }
+}
+
+// build the font-preload sample from whatever text is currently configured, so custom
+// character names/quotes/logo text get their glyphs warmed up too, not just the defaults.
+function fontSampleFromConfig(cfg) {
+  const t = cfg.text;
+  return [
+    ...t.scene1Words, ...t.scene2Lines.map(l => l.text), t.tapeTop, t.tapeBottom, t.scene4Title,
+    t.scene5Line1, t.scene5Line2, t.logoText, t.englishTag, t.tagline, t.comingSoonLine1, t.comingSoonLine2,
+    ...cfg.characters.flatMap(c => [c.name, c.en, c.quote]),
+  ].join('') + 'BEANS 0123456789！';
+}
+const ready = configReady.then(() => {
+  const FONT_SAMPLE = fontSampleFromConfig(CONFIG);
+  return Promise.all([
+    document.fonts.load(`100px "Dela Gothic One"`, FONT_SAMPLE),
+    document.fonts.load('100px Anton', 'BEANS 0123456789'),
+    document.fonts.load('900 100px "M PLUS 1p"', FONT_SAMPLE),
+  ]);
+}).catch(() => {});
+
+function stopAll() {
+  playing = false;
+  [vA, vB].forEach(v => v.pause());
+  if (outNode) { try { outNode.disconnect(); } catch (e) {} outNode = null; }
+  document.getElementById('play').textContent = '▶ 再生';
+  document.getElementById('rec').disabled = false;
+}
+
+async function start(record) {
+  await ready;
+  if (!AC) AC = new AudioContext();
+  await AC.resume();
+  stopAll();
+  const dest = AC.createMediaStreamDestination();
+  outNode = AC.createGain(); outNode.connect(AC.destination); outNode.connect(dest);
+  T0 = AC.currentTime + .35;
+  scheduleAudio(AC, outNode, T0);
+  vA.currentTime = 0; vB.currentTime = vStartB();
+  rec = null; recStarted = false; chunks = [];
+  if (record) {
+    try { ctx.getImageData(0, 0, 1, 1); }
+    catch (e) { msg.textContent = '書き出し不可：file:// で開いています。serve.bat から http で開いてください。'; return; }
+    const cands = ['video/mp4;codecs=avc1.640028,mp4a.40.2', 'video/mp4', 'video/webm;codecs=vp9,opus', 'video/webm'];
+    recMime = cands.find(m => MediaRecorder.isTypeSupported(m)) || '';
+    const vs = cv.captureStream(30);
+    const stream = new MediaStream([...vs.getVideoTracks(), ...dest.stream.getAudioTracks()]);
+    rec = new MediaRecorder(stream, { mimeType: recMime, videoBitsPerSecond: 24e6, audioBitsPerSecond: 256000 });
+    rec.ondataavailable = e => e.data.size && chunks.push(e.data);
+    rec.onstop = () => {
+      const ext = recMime.includes('mp4') ? 'mp4' : 'webm';
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob(chunks, { type: recMime.split(';')[0] }));
+      a.download = `ビーンズ_CM_15s.${ext}`; a.click();
+      msg.textContent = `書き出し完了 (${ext})`;
+    };
+    msg.textContent = '録画中…タブを前面のまま待ってください';
+    document.getElementById('rec').disabled = true;
+  } else msg.textContent = '';
+  playing = true;
+  document.getElementById('play').textContent = '■ 停止';
+}
+
+// ---------- frame-exact offline export (WebCodecs + mp4-muxer) ----------
+let exporting = false;
+const tick = () => new Promise(r => setTimeout(r, 0));
+function seekTo(el, time) {
+  if (Math.abs(el.currentTime - time) < 1e-4 && el.readyState >= 2) return Promise.resolve();
+  return new Promise(res => { el.addEventListener('seeked', res, { once: true }); el.currentTime = time; });
+}
+async function exportMP4() {
+  if (exporting) return;
+  if (!window.VideoEncoder || !window.Mp4Muxer) { msg.textContent = 'この環境は WebCodecs / mp4-muxer 非対応です（Chrome 推奨）'; return; }
+  exporting = true; stopAll();
+  const recBtn = document.getElementById('rec'), playBtn = document.getElementById('play');
+  recBtn.disabled = playBtn.disabled = true;
+  try {
+    await ready; await videoReady;
+    const FPS = 30, N = Math.round(DUR * FPS), SR = 48000;
+    msg.textContent = '音声をレンダリング中…';
+    const oac = new OfflineAudioContext(2, SR * DUR, SR);
+    scheduleAudio(oac, oac.destination, 0);
+    const abuf = await oac.startRendering();
+
+    let ac = null;
+    for (const c of [{ codec: 'mp4a.40.2', mux: 'aac' }, { codec: 'opus', mux: 'opus' }]) {
+      const s = await AudioEncoder.isConfigSupported({ codec: c.codec, sampleRate: SR, numberOfChannels: 2, bitrate: 192000 }).catch(() => ({}));
+      if (s.supported) { ac = c; break; }
+    }
+    const muxer = new Mp4Muxer.Muxer({
+      target: new Mp4Muxer.ArrayBufferTarget(),
+      video: { codec: 'avc', width: W, height: H, frameRate: FPS },
+      audio: ac ? { codec: ac.mux, sampleRate: SR, numberOfChannels: 2 } : undefined,
+      fastStart: 'in-memory',
+    });
+    let encErr = null;
+    const venc = new VideoEncoder({ output: (c, m) => muxer.addVideoChunk(c, m), error: e => { encErr = e; } });
+    venc.configure({ codec: 'avc1.640028', width: W, height: H, bitrate: 24e6, framerate: FPS });
+
+    for (let i = 0; i < N; i++) {
+      const t = i / FPS;
+      for (const s of VSEG) if (t >= s.a && t < s.b) await seekTo(s.el, Math.min(vdur - .001, (t - s.a) + s.off()));
+      render(t);
+      const vf = new VideoFrame(cv, { timestamp: Math.round(i * 1e6 / FPS), duration: Math.round(1e6 / FPS) });
+      venc.encode(vf, { keyFrame: i % 30 === 0 }); vf.close();
+      while (venc.encodeQueueSize > 6) await new Promise(r => setTimeout(r, 4));
+      if (encErr) throw encErr;
+      if (i % 5 === 0) { msg.textContent = `映像を書き出し中… ${i}/${N}`; scrub.value = t; tcEl.textContent = t.toFixed(2) + 's'; await tick(); }
+    }
+    await venc.flush();
+
+    if (ac) {
+      const aenc = new AudioEncoder({ output: (c, m) => muxer.addAudioChunk(c, m), error: e => { encErr = e; } });
+      aenc.configure({ codec: ac.codec, sampleRate: SR, numberOfChannels: 2, bitrate: 192000 });
+      const L = abuf.getChannelData(0), R = abuf.getChannelData(1), STEP = 4800;
+      for (let o = 0; o < abuf.length; o += STEP) {
+        const n = Math.min(STEP, abuf.length - o), data = new Float32Array(n * 2);
+        data.set(L.subarray(o, o + n), 0); data.set(R.subarray(o, o + n), n);
+        const ad = new AudioData({ format: 'f32-planar', sampleRate: SR, numberOfFrames: n, numberOfChannels: 2, timestamp: Math.round(o / SR * 1e6), data });
+        aenc.encode(ad); ad.close();
+      }
+      await aenc.flush();
+      if (encErr) throw encErr;
+    }
+    muxer.finalize();
+    const blob = new Blob([muxer.target.buffer], { type: 'video/mp4' });
+    const name = 'beans_cm_15s.mp4';
+    let saved = '';
+    try { const r = await fetch('save?name=' + name, { method: 'POST', body: blob }); if (r.ok) saved = await r.text(); } catch (e) {}
+    if (!saved) {
+      const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; a.click(); saved = 'ダウンロード: ' + name;
+    }
+    msg.textContent = `書き出し完了 (${(blob.size / 1e6).toFixed(1)}MB, audio=${ac ? ac.mux : 'なし'}) → ${saved}`;
+  } catch (e) {
+    console.error(e); msg.textContent = '書き出し失敗: ' + e;
+  } finally {
+    exporting = false; recBtn.disabled = playBtn.disabled = false;
+  }
+}
+window.exportMP4 = exportMP4;
+
+// ============================================================
+//  EDITOR PANEL — live-edit text/colors (auto-saved to config.json) and
+//  swap images/video (uploaded into assets/, page reloads to pick them up)
+// ============================================================
+const editor = document.getElementById('editor');
+let saveTimer = null;
+function scheduleSave() {
+  const el = document.getElementById('saveState'); el.textContent = '編集中…';
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(async () => {
+    el.textContent = '保存中…';
+    try {
+      const r = await fetch('save-config', { method: 'POST', body: JSON.stringify(CONFIG, null, 2) });
+      el.textContent = r.ok ? '保存しました ' + new Date().toLocaleTimeString() : '保存できません（このページに保存機能なし。このタブ内だけの一時編集）';
+    } catch (e) { el.textContent = '保存できません（このページに保存機能なし。このタブ内だけの一時編集）'; }
+  }, 500);
+}
+function rerenderNow() { if (!playing && !exporting) render(+scrub.value); }
+function bindText(id, get, set) {
+  const el = document.getElementById(id);
+  el.addEventListener('input', () => { set(el.value); scheduleSave(); rerenderNow(); });
+}
+function fillText(id, val) { document.getElementById(id).value = val; }
+
+// swap a video element's source to a local blob URL and wait for it to be ready
+async function swapVideoSrc(el, url) {
+  await new Promise(res => { el.addEventListener('loadeddata', res, { once: true }); el.src = url; el.load(); });
+}
+
+// Uploads to serve.py's /save-asset so the file persists in assets/ on disk (works when
+// running via serve.bat). On static hosting with no backend (e.g. GitHub Pages) that POST
+// fails, so we fall back to swapping the file in live, in-memory only: it previews and can
+// be exported to MP4, but is lost on reload since there's nowhere to persist it to.
+async function uploadAsset(file, name) {
+  const el = document.getElementById('saveState'); el.textContent = `${name} をアップロード中…`;
+  try {
+    const r = await fetch('save-asset?name=' + encodeURIComponent(name), { method: 'POST', body: file });
+    if (!r.ok) throw new Error(String(r.status));
+    sessionStorage.setItem('beans_scrub', scrub.value);
+    sessionStorage.setItem('beans_editor_open', '1');
+    location.reload();
+  } catch (e) {
+    const url = URL.createObjectURL(file);
+    const m = name.match(/^char_(\d)\.png$/);
+    if (name === 'sheet_alpha.png') sheet.src = url;
+    else if (name === 'goblins_alpha.webm') await Promise.all([vA, vB].map(v => swapVideoSrc(v, url))).then(() => { vdur = vA.duration || vdur; });
+    else if (m) CHARS[+m[1] - 1].src = url;
+    rerenderNow();
+    el.textContent = `保存機能なし。このタブ内だけプレビュー反映（保存/リロード後は元に戻ります）`;
+  }
+}
+
+function buildCharRows() {
+  const wrap = document.getElementById('charRows'); wrap.innerHTML = '';
+  CONFIG.characters.forEach((c, i) => {
+    const div = document.createElement('div'); div.className = 'char-card';
+    div.innerHTML = `
+      <div class="ed-row"><label>名前</label><input type="text" data-f="name" value="${c.name}"></div>
+      <div class="ed-row"><label>英語名</label><input type="text" data-f="en" value="${c.en}"></div>
+      <div class="ed-row"><label>セリフ</label><input type="text" data-f="quote" value="${c.quote}"></div>
+      <div class="ed-row"><label>色</label><input type="color" data-f="color" value="${c.color}">
+        <label style="width:auto;margin-left:12px">画像</label><input type="file" accept="image/png,image/webp" data-f="image"></div>`;
+    div.querySelectorAll('input[data-f]').forEach(inp => {
+      const f = inp.dataset.f;
+      if (f === 'image') {
+        inp.addEventListener('change', () => { if (inp.files[0]) uploadAsset(inp.files[0], `char_${i + 1}.png`); });
+      } else {
+        inp.addEventListener('input', () => { CONFIG.characters[i][f] = inp.value; scheduleSave(); rerenderNow(); });
+      }
+    });
+    wrap.appendChild(div);
+  });
+}
+function buildS2Lines() {
+  const wrap = document.getElementById('s2lines'); wrap.innerHTML = '';
+  CONFIG.text.scene2Lines.forEach((ln, i) => {
+    const row = document.createElement('div'); row.className = 'ed-row';
+    row.innerHTML = `<label>${i + 1}つ目</label><input type="text" data-f="text" value="${ln.text}">
+      <input type="color" data-f="color" value="${ln.color}">`;
+    row.querySelectorAll('input[data-f]').forEach(inp => {
+      const f = inp.dataset.f;
+      inp.addEventListener('input', () => { ln[f] = inp.value; scheduleSave(); rerenderNow(); });
+    });
+    wrap.appendChild(row);
+  });
+}
+function fillEditorFromConfig() {
+  fillText('cfg-bpm', CONFIG.bpm);
+  fillText('cfg-logo', CONFIG.text.logoText);
+  fillText('cfg-entag', CONFIG.text.englishTag);
+  fillText('cfg-tagline', CONFIG.text.tagline);
+  fillText('cfg-cs1', CONFIG.text.comingSoonLine1);
+  fillText('cfg-cs2', CONFIG.text.comingSoonLine2);
+  fillText('cfg-s4title', CONFIG.text.scene4Title);
+  fillText('cfg-s5l1', CONFIG.text.scene5Line1);
+  fillText('cfg-s5l2', CONFIG.text.scene5Line2);
+  fillText('cfg-tapetop', CONFIG.text.tapeTop);
+  fillText('cfg-tapebottom', CONFIG.text.tapeBottom);
+  document.querySelectorAll('.cfg-w1').forEach(inp => { inp.value = CONFIG.text.scene1Words[+inp.dataset.i]; });
+  buildS2Lines();
+  buildCharRows();
+}
+function initEditor() {
+  fillEditorFromConfig();
+  bindText('cfg-bpm', null, v => { CONFIG.bpm = +v || CONFIG.bpm; applyConfig(CONFIG); });
+  bindText('cfg-logo', null, v => CONFIG.text.logoText = v);
+  bindText('cfg-entag', null, v => CONFIG.text.englishTag = v);
+  bindText('cfg-tagline', null, v => CONFIG.text.tagline = v);
+  bindText('cfg-cs1', null, v => CONFIG.text.comingSoonLine1 = v);
+  bindText('cfg-cs2', null, v => CONFIG.text.comingSoonLine2 = v);
+  bindText('cfg-s4title', null, v => CONFIG.text.scene4Title = v);
+  bindText('cfg-s5l1', null, v => CONFIG.text.scene5Line1 = v);
+  bindText('cfg-s5l2', null, v => CONFIG.text.scene5Line2 = v);
+  bindText('cfg-tapetop', null, v => CONFIG.text.tapeTop = v);
+  bindText('cfg-tapebottom', null, v => CONFIG.text.tapeBottom = v);
+  document.querySelectorAll('.cfg-w1').forEach(inp => {
+    inp.addEventListener('input', () => { CONFIG.text.scene1Words[+inp.dataset.i] = inp.value; scheduleSave(); rerenderNow(); });
+  });
+  document.getElementById('asset-sheet').addEventListener('change', e => { if (e.target.files[0]) uploadAsset(e.target.files[0], 'sheet_alpha.png'); });
+  document.getElementById('asset-video').addEventListener('change', e => { if (e.target.files[0]) uploadAsset(e.target.files[0], 'goblins_alpha.webm'); });
+
+  document.getElementById('editBtn').onclick = () => editor.classList.toggle('hidden');
+  document.getElementById('closeEditor').onclick = () => editor.classList.add('hidden');
+  if (sessionStorage.getItem('beans_editor_open')) { editor.classList.remove('hidden'); sessionStorage.removeItem('beans_editor_open'); }
+  const savedScrub = sessionStorage.getItem('beans_scrub');
+  if (savedScrub) { scrub.value = savedScrub; sessionStorage.removeItem('beans_scrub'); rerenderNow(); }
+}
+configReady.then(initEditor);
+
+document.getElementById('play').onclick = () => playing ? stopAll() : start(false);
+document.getElementById('rec').onclick = exportMP4;
+scrub.addEventListener('input', () => { if (playing) stopAll(); });
+addEventListener('keydown', e => { if (e.code === 'Space') { e.preventDefault(); playing ? stopAll() : start(false); } });
+
+function loop() {
+  if (exporting) { requestAnimationFrame(loop); return; }
+  let t;
+  if (playing) {
+    t = AC.currentTime - T0;
+    if (rec && !recStarted && t >= 0) { rec.start(); recStarted = true; }
+    if (t >= DUR + .05) {
+      t = DUR - 1e-3;
+      if (rec && rec.state === 'recording') rec.stop();
+      rec = null; stopAll();
+    }
+    scrub.value = Math.max(0, t);
+  } else t = +scrub.value;
+  const tt = clamp(t, 0, DUR - 1e-3);
+  syncVideo(tt);
+  render(tt);
+  tcEl.textContent = tt.toFixed(2) + 's';
+  requestAnimationFrame(loop);
+}
+ready.then(() => requestAnimationFrame(loop));
+</script>
+</body>
+</html>

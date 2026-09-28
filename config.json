@@ -1,0 +1,102 @@
+{
+  "bpm": 128,
+  "duration": 15,
+  "colors": {
+    "green": "#8CC63F",
+    "lime": "#9BE15D"
+  },
+  "assets": {
+    "squadVideo": "assets/goblins_alpha.webm",
+    "groupSheet": "assets/sheet_alpha.png",
+    "groupSheetCrop": [
+      0,
+      380,
+      3333,
+      1520
+    ]
+  },
+  "characters": [
+    {
+      "name": "ハカセ",
+      "en": "THE BRAIN",
+      "quote": "計算どおり…たぶん。",
+      "color": "#FF5A36",
+      "image": "assets/char_1.png"
+    },
+    {
+      "name": "ドッシリ",
+      "en": "THE TANK",
+      "quote": "はらへった！",
+      "color": "#FFC21A",
+      "image": "assets/char_2.png"
+    },
+    {
+      "name": "ツンツン",
+      "en": "THE COOL",
+      "quote": "別に…やるけど？",
+      "color": "#2E7BFF",
+      "image": "assets/char_3.png"
+    },
+    {
+      "name": "ヒョロリ",
+      "en": "THE WORRIER",
+      "quote": "え、ほんとに行くの？",
+      "color": "#8A3FFC",
+      "image": "assets/char_4.png"
+    },
+    {
+      "name": "チビスケ",
+      "en": "THE KID",
+      "quote": "ぼくもいくー！",
+      "color": "#FF2E88",
+      "image": "assets/char_5.png"
+    }
+  ],
+  "text": {
+    "scene1Words": [
+      "ちいさな",
+      "みどりの",
+      "5人組"
+    ],
+    "scene2Lines": [
+      {
+        "text": "ちっちゃい。",
+        "beat": 1,
+        "endBeat": 3,
+        "color": "#fff",
+        "size": 200
+      },
+      {
+        "text": "でも、",
+        "beat": 3,
+        "endBeat": 4,
+        "color": "#fff",
+        "size": 200
+      },
+      {
+        "text": "やるときゃ",
+        "beat": 4,
+        "endBeat": 5,
+        "color": "#fff",
+        "size": 210
+      },
+      {
+        "text": "やる！",
+        "beat": 5,
+        "endBeat": 7,
+        "color": "#FF2E88",
+        "size": 280
+      }
+    ],
+    "tapeTop": "BEANS!  ★  ビーンズ！  ★  ",
+    "tapeBottom": "ちっちゃいけど、ぜんりょく。  ●  ",
+    "scene4Title": "5人そろって——",
+    "scene5Line1": "いくぞ、",
+    "scene5Line2": "野郎ども！！",
+    "logoText": "ビーンズ！",
+    "englishTag": "BEANS!",
+    "tagline": "ちっちゃいけど、ぜんりょく。",
+    "comingSoonLine1": "COMING",
+    "comingSoonLine2": "SOON!"
+  }
+}
