@@ -9,6 +9,7 @@
 <style>
   html,body{margin:0;background:#0b0b0b;color:#eee;font-family:system-ui,sans-serif}
   #wrap{display:flex;flex-direction:column;align-items:center;gap:12px;padding:16px}
+  #leftCol{display:flex;flex-direction:column;align-items:center;gap:12px}
   canvas{width:min(96vw,calc((100vh - 130px)*16/9));aspect-ratio:16/9;background:#000;box-shadow:0 12px 40px #000;display:block}
   .bar{display:flex;gap:10px;align-items:center;width:min(96vw,calc((100vh - 130px)*16/9))}
   button{background:#9BE15D;border:0;color:#111;font-weight:800;padding:10px 18px;border-radius:8px;cursor:pointer;font-size:15px}
@@ -21,6 +22,15 @@
   #editor{width:min(96vw,calc((100vh - 130px)*16/9));max-height:60vh;overflow-y:auto;background:#181818;
     border:1px solid #333;border-radius:10px;padding:14px 18px;box-sizing:border-box;font-size:13px}
   #editor.hidden{display:none}
+  /* editing mode: preview stays on the left, the editor panel becomes a right-hand sidebar */
+  #wrap.editing{flex-direction:row;align-items:flex-start;justify-content:center;gap:20px;flex-wrap:wrap}
+  #wrap.editing #leftCol canvas,#wrap.editing #leftCol .bar{width:min(56vw,calc((100vh - 90px)*16/9))}
+  #wrap.editing #editor{width:420px;max-width:40vw;max-height:calc(100vh - 32px);position:sticky;top:16px}
+  @media (max-width: 900px){
+    #wrap.editing{flex-direction:column;align-items:center}
+    #wrap.editing #leftCol canvas,#wrap.editing #leftCol .bar{width:min(96vw,calc((100vh - 130px)*16/9))}
+    #wrap.editing #editor{width:min(96vw,calc((100vh - 130px)*16/9));max-width:none;position:static;max-height:60vh}
+  }
   #editor h4{margin:14px 0 8px;color:#9BE15D;font-size:13px;border-bottom:1px solid #333;padding-bottom:4px}
   #editor h4:first-child{margin-top:0}
   .ed-head{display:flex;align-items:center;gap:10px;margin-bottom:6px}
@@ -38,15 +48,17 @@
 </head>
 <body>
 <div id="wrap">
-  <canvas id="c" width="1920" height="1080"></canvas>
-  <div class="bar">
-    <button id="play">▶ 再生</button>
-    <button id="rec" class="rec">● MP4書き出し</button>
-    <button id="editBtn" class="ghost">✎ 編集</button>
-    <input id="scrub" type="range" min="0" max="15" step="0.0333" value="0">
-    <span id="tc">0.00s</span>
+  <div id="leftCol">
+    <canvas id="c" width="1920" height="1080"></canvas>
+    <div class="bar">
+      <button id="play">▶ 再生</button>
+      <button id="rec" class="rec">● MP4書き出し</button>
+      <button id="editBtn" class="ghost">✎ 編集</button>
+      <input id="scrub" type="range" min="0" max="15" step="0.0333" value="0">
+      <span id="tc">0.00s</span>
+    </div>
+    <div id="msg"></div>
   </div>
-  <div id="msg"></div>
 
   <div id="editor" class="hidden">
     <div class="ed-head">
@@ -1039,9 +1051,11 @@ function initEditor() {
   document.getElementById('asset-sheet').addEventListener('change', e => { if (e.target.files[0]) uploadAsset(e.target.files[0], 'sheet_alpha.png'); });
   document.getElementById('asset-video').addEventListener('change', e => { if (e.target.files[0]) uploadAsset(e.target.files[0], 'goblins_alpha.webm'); });
 
-  document.getElementById('editBtn').onclick = () => editor.classList.toggle('hidden');
-  document.getElementById('closeEditor').onclick = () => editor.classList.add('hidden');
-  if (sessionStorage.getItem('beans_editor_open')) { editor.classList.remove('hidden'); sessionStorage.removeItem('beans_editor_open'); }
+  const wrap = document.getElementById('wrap');
+  const setEditorOpen = open => { editor.classList.toggle('hidden', !open); wrap.classList.toggle('editing', open); };
+  document.getElementById('editBtn').onclick = () => setEditorOpen(editor.classList.contains('hidden'));
+  document.getElementById('closeEditor').onclick = () => setEditorOpen(false);
+  if (sessionStorage.getItem('beans_editor_open')) { setEditorOpen(true); sessionStorage.removeItem('beans_editor_open'); }
   const savedScrub = sessionStorage.getItem('beans_scrub');
   if (savedScrub) { scrub.value = savedScrub; sessionStorage.removeItem('beans_scrub'); rerenderNow(); }
 }
